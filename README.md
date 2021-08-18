@@ -1,74 +1,36 @@
 # Helm chart repository template
 
-This is helm-chart template project. Can be used with IITS workflow templates.
+This is helm-chart template project. Can be used for any Helm chart. With IITS CI workflow inside.
 
 # Why
 - To save time by automating daily routine
 - To have similar CI/CD process for all projects
 - To save us from human mistakes
 
-## Prerequisites
+## How to start
 1. Make new GitHub repository from this template
 2. Clone it
-3. Replace/Put Environment Variables
+3. Replace/Put Environment Variables and secrets
    ```yaml
     # Example values
+    # Don't forget to add secrets:
+    # ACR_RELEASER_TOKEN
+    # SLACK_BOT_TOKEN
+   
     ACR_NAME: iitsc
     ACR_USER_NAME: iits-releaser
     SLACK_CHANNEL_ID: "C02AJKXC8UT"
    ```
-4. Create new branch, commit and push your first changes
-### K8S
+4. Create new branch
+5. Commit and push your changes
+6. Check Github Actions and [Azure container registry](https://portal.azure.com/#@iits-consulting.de/resource/subscriptions/c133dc8d-be37-4a6e-8442-c0a7e38209cb/resourcegroups/iits-tech-domain/providers/Microsoft.ContainerRegistry/registries/iitsc/repository) to be sure that your chart version is released
 
-Get a K8S cluster. For example see https://minikube.sigs.k8s.io/docs/start/
-
-### Helm
-
-Get Helm : https://helm.sh/docs/intro/install/
-
-## Install
-
-1. Clone the repo
-2. cd into ./k8s/helm/workadventure
-3. Install workadventure in tag defined in [Chart](./Chart.yml) :
-```
-helm install myrelease .
-```
-4. Wait a few seconds for all pods to start
-5. With self-signed TLS certificates, make them trust by your browser by going to https://maps.workadventure.minikube/, https://pusher.workadventure.minikube/
-6. Then you can start by going to https://play.workadventure.minikube/
-
-
-By default, Workadventure will respond to https://[play | maps | pusher | uploader | api].workadventure.minikube
-
-You can also start another universe with another map. For example : https://play.workadventure.minikube/_/anyuniverse/gparant.github.io/tcm-client/Demo/demo-v1.json
-
-### Install workadventure in a specific Git branch
-
-Branches are those in upstream repo (from https://github.com/thecodingmachine/workadventure)
-
-```
-helm install myrelease . --set image.tag=develop
-```
-
-### Install workadventure with a specific domain
-```
-helm install myrelease . --set domain=mydomain.com
-```
-
-It will then be available at https://play.mydomain.com/_/global/maps.mydomain.com/Floor0/floor0.json
-
-
-## Customise
-
-You can override any values defined [values.yaml](./values.yaml). Read Helm doc to know how.
-
-## TODO
-
-[X] TLS in order to make camera and mic working
-
-[ ] Depend from Jitsi Helm to get full self-hosting
-
-[ ] Simplify templates ?
-
-[ ] CI/CD this Chart
+## How to release new stable version without short SHA in the end?
+1. Test your changes to be sure that your changes can be used in Production Environment
+2. Make Pull-Request with one of the labels *(depends on your case)*:
+   - major
+   - minor
+   - patch
+3. Wait for **Enforce PR labels** job finish
+4. Merge it
+5. Check Github Actions and [Azure container registry](https://portal.azure.com/#@iits-consulting.de/resource/subscriptions/c133dc8d-be37-4a6e-8442-c0a7e38209cb/resourcegroups/iits-tech-domain/providers/Microsoft.ContainerRegistry/registries/iitsc/repository) to be sure that your chart version is released
