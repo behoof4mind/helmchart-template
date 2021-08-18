@@ -1,0 +1,139 @@
+# Don't forget to add secrets:
+# ACR_RELEASER_TOKEN
+# SLACK_BOT_TOKEN
+
+name: Lint, PR, pre-Release
+on:
+  push:
+    paths-ignore:
+      - ".github/**"
+      - "*.md"
+      - "LICENSE"
+    branches-ignore:
+      - main
+      - master
+
+env:
+  HELM_EXPERIMENTAL_OCI: 1
+  ACR_NAME: iitsc
+  ACR_USER_NAME: iits-releaser
+  SLACK_CHANNEL_ID: "C02AJKXC8UT"
+
+jobs:
+  lint:
+    name: Lint & validate K8S manifests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+
+      - name: Install helm
+        uses: Azure/setup-helm@v1.1
+
+      - name: Lint chart
+        run: helm lint --strict
+
+      - name: Validate Kubernetes YAML files with Kubeval
+        run: |
+          helm plugin install https://github.com/instrumenta/helm-kubeval
+          helm kubeval .
+
+  release:
+    needs: [lint]
+    name: Release new chart version
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+
+      - name: Set variables and outputs
+        id: define_envz
+        run: |
+          echo "GIT_SHA_SHORT=$(echo $GITHUB_SHA | cut -c 1-7)" >> $GITHUB_ENV
+          echo "BRANCH_NAME=$(echo "${GITHUB_REF##*/}")" >> $GITHUB_ENV
+
+      - name: Get new tag
+        id: newtag
+        run: |
+          ct=$(cat Chart.yaml | tr -d " " | grep -oP '(?<=version:)\d+\.\d+\.\d+')
+          echo $ct
+          if [[ -z $ct ]]
+          then
+            echo "ERROR: Check your chart version in Chart.yaml file!!!"
+            echo "It should have SemVer numbers and be processed by '(?<=version:)\d+\.\d+\.\d+' regexp"
+            exit 1
+          fi
+          echo "NEW_VERSION=$(echo ${ct}-${{ env.GIT_SHA_SHORT }})" >> $GITHUB_ENV
+
+      - name: Bump version and push tag
+        uses: anothrNick/github-tag-action@1.26.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DEFAULT_BUMP: none
+          RELEASE_BRANCHES: .*
+          CUSTOM_TAG: ${{ env.NEW_VERSION }}
+
+      - name: Install helm
+        uses: Azure/setup-helm@v1.1
+
+      - name: Login to ACR using helm
+        run: |
+          echo ${{ secrets.ACR_RELEASER_TOKEN }} | helm registry login ${{ env.ACR_NAME }}.azurecr.io --username ${{ env.ACR_USER_NAME }} --password-stdin
+
+      - name: Save helm chart to locally
+        run: |
+          helm chart save . ${{ env.ACR_NAME }}.azurecr.io/charts/${{ github.event.repository.name }}:${{ env.NEW_VERSION }}
+
+      - name: Publish chart to the ACR
+        run: |
+          helm chart push ${{ env.ACR_NAME }}.azurecr.io/charts/${{ github.event.repository.name }}:${{ env.NEW_VERSION }}
+
+###############################################################
+######## To use Slack app notifications, create json  #########
+####### payload file before and uncomment steps below #########
+###############################################################
+#      - name: Notify slack success
+#        if: ${{ success() }}
+#        env:
+#          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+#        uses: iits-consulting/slack-action@master
+#        with:
+#          channel_id: ${{ env.SLACK_CHANNEL_ID }}
+#          payload_file: ".github/success_slack_message.json"
+#          replaceme_1: ${{ github.event.repository.name }}
+#          replaceme_2: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}
+#          replaceme_3: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}
+#          replaceme_4: ${{ env.NEW_VERSION }}
+#
+#      - name: Notify slack failed
+#        if: ${{ failure() }}
+#        env:
+#          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+#        uses: iits-consulting/slack-action@master
+#        with:
+#          channel_id: ${{ env.SLACK_CHANNEL_ID }}
+#          payload_file: ".github/failed_slack_message.json"
+#          replaceme_1: ${{ github.event.repository.name }}
+#          replaceme_2: "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}"
+#          replaceme_3: "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+#          replaceme_4: ${{ env.NEW_VERSION }}
+#      - name: Notify slack aborted
+#        if: ${{ cancelled() }}
+#        env:
+#          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+#        uses: iits-consulting/slack-action@master
+#        with:
+#          channel_id: ${{ env.SLACK_CHANNEL_ID }}
+#          payload_file: ".github/aborted_slack_message.json"
+#          replaceme_1: ${{ github.event.repository.name }}
+#          replaceme_2: "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}"
+#          replaceme_3: "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+#          replaceme_4: ${{ env.NEW_VERSION }}
+
+
+
+

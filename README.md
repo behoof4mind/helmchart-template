@@ -1,9 +1,11 @@
 # Helm chart repository template
 
-This is template project with auto-versioning and CI inside. Can be used for any new helm chart project.
+This is helm-chart template project. Can be used with IITS workflow templates.
 
 # Why
-This project is a part of fully-automated CI/CD process concept, based on GitOps with ArgoCD
+- To save time by automating daily routine
+- To have similar CI/CD process for all projects
+- To save us from human mistakes
 
 ## Prerequisites
 1. Make new GitHub repository from this template
